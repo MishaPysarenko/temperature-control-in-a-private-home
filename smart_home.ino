@@ -1,5 +1,7 @@
 #include <string.h>
 
+#include <avr/eeprom.h>
+
 #include <DS_raw.h>
 #include <microDS18B20.h>
 #include <microOneWire.h>
@@ -33,25 +35,33 @@ MicroDS18B20 <A0, addr4> D4;
 MicroDS18B20 <A0, addr5> D5;
 MicroDS18B20 <A0, addr6> D6;
 
+struct DATA
+{
+  int user_temp = 10;
+  int minHour = 0;
+  int maxHour = 24;
+};
+
 LiquidCrystal_I2C lcd(0x27,16,2);  // Устанавливаем дисплей   A4 - SDA : A5 - SCL
 
 Encoder enc(CLK, DT, SW);
 
 iarduino_RTC clock(RTC_DS1307); 
 
-short int temp1 = -1,temp2 = -1, temp3 = -1, temp4 = -1, temp5 = -1, temp6 = -1, user_temp = 10;
+short int temp1 = -1,temp2 = -1, temp3 = -1, temp4 = -1, temp5 = -1, temp6 = -1;
 short int select_menu = 1;
-short int minHour = 0, minMinut = 0, maxHour = 24, maxMinut = 0;
+
+DATA data;
 
 void showUserTime(){
   lcd.setCursor(0, 1);
-  lcd.print(minHour);
+  lcd.print(data.minHour);
   lcd.setCursor(2, 1);
   lcd.print(":");
   lcd.print("00");
   lcd.setCursor(5, 1);
   lcd.print(" - ");
-  lcd.print(maxHour);
+  lcd.print(data.maxHour);
   lcd.setCursor(10, 1);
   lcd.print(":");
   lcd.print("00");
@@ -78,8 +88,8 @@ void allGetTemp(){
 //D2 - датчик темп в спальне 
 //D3 - датчик темп пола в кухне
 //D4 - датчик темп пола в спальне
-//D5 - датчик темп эл котла
-//D6 - датчик темп дров котла
+//D5 - датчик темп дров котла
+//D6 - датчик темп эл котла
 //если на D3 & D4 температура больше 27, остановить насос при любых обстоятельствах
 //нагрев и работа насоса пока не будет температуры соотвествии с установленой на D1 //& D2
 //если на D5 болше 35 и D6 больше 35 отключить нагрев эл котла, работает только насос
@@ -94,24 +104,22 @@ void mainLogic(){
   String H = clock.gettime("H"), i = clock.gettime("i");
   short int timeH = H.toInt(), timeM = i.toInt();
   //работа эл котла по времени 
-  if((minHour < timeH) && (maxHour > timeH))
+  if((data.minHour <= timeH) && (data.maxHour >= timeH) && (temp6  < 50))
   {
     //нагрев и работа насоса пока не будет температуры соотвествии с установленой на D1 //& D2
-    if((temp1 < user_temp))//включить насос и эл котел
+    if((temp1 < data.user_temp))//включить насос и эл котел
     {
       digitalWrite(electric_boiler, HIGH);
-      digitalWrite(floor_pump, HIGH);
       digitalWrite(electric_valve, LOW);
     }
     else
     {
       digitalWrite(electric_boiler, LOW);
       digitalWrite(electric_valve, HIGH);
-      digitalWrite(floor_pump, LOW);
     }
 
     //если на D5 болше 35 и D6 больше 35 отключить нагрев эл котла, работает только насос
-    if(temp5 > 35 && temp6 > 35)
+    if(temp5 > 35)
     {
       digitalWrite(electric_boiler, LOW);
       digitalWrite(electric_valve, HIGH);
@@ -121,30 +129,40 @@ void mainLogic(){
       digitalWrite(electric_boiler, HIGH);
       digitalWrite(electric_valve, LOW);
     }
+    
   }
   else
   {
     digitalWrite(electric_boiler, LOW);
     digitalWrite(electric_valve, HIGH);
   }
-  //если на D3 & D4 температура больше 27, остановить насос при любых обстоятельствах
-  if((temp3 > 27) || (temp4 > 27))//выключить насос
-  {
-    digitalWrite(floor_pump, LOW); 
-  }
-  else
+
+  if(temp1 < data.user_temp)
   {
     digitalWrite(floor_pump, HIGH); 
   }
-  //если на датчике 6 больше 55 включить насос на батареи 
-  if(temp6 > 55)
+  else
+  {
+    digitalWrite(floor_pump, LOW);
+  }
+
+  //если на D3 & D4 температура больше 27, остановить насос при любых обстоятельствах
+  if((temp3 >= 27) || (temp4 >= 27) || (temp6 >= 45))//выключить насос
+  {
+    digitalWrite(floor_pump, LOW); 
+  }
+
+  //если на датчике 5 больше 55 включить насос на батареи 
+  digitalWrite(battery_pump, LOW);
+  if(temp5 > 55)
   {
     digitalWrite(battery_pump, HIGH); 
-  }
+  }  
   else
   {
     digitalWrite(battery_pump, LOW);
   }
+
 }
 
 void drawMenu(){
@@ -183,17 +201,19 @@ void drawMenu(){
       lcd.setCursor(0, 0);
       lcd.print("termo stat ");
       lcd.setCursor(0, 1);
-      lcd.print(user_temp);
+      lcd.print(data.user_temp);
       if(enc.isRight())
       {
-        user_temp++;
-        if(user_temp > 27)user_temp = 27;
+        data.user_temp++;
+        if(data.user_temp > 25)data.user_temp = 25;
+        eeprom_update_block((void*)&data,0,sizeof(data));
         lcd.clear();
       }
       if(enc.isLeft())
       {
-        user_temp--;
-        if(user_temp < 10)user_temp = 10;
+        data.user_temp--;
+        if(data.user_temp < 10)data.user_temp = 10;
+        eeprom_update_block((void*)&data,0,sizeof(data));
         lcd.clear();
       }
     }while(!(enc.isClick()));
@@ -212,14 +232,16 @@ void drawMenu(){
       if(enc.isTurn())
       {
         if(enc.isRight() || enc.isRightH() || enc.isFastR()){ 
-          minHour++;
-          if(minHour > 24)minHour = 0;  
+          data.minHour++;
+          if(data.minHour > 24)data.minHour = 0;
+          eeprom_update_block((void*)&data,0,sizeof(data));  
           lcd.clear();
           showUserTime();
         }
         else if(enc.isLeft() || enc.isLeftH() || enc.isFastL() ){
-          minHour--;
-          if(minHour < 0)minHour = 24;
+          data.minHour--;
+          if(data.minHour < 0)data.minHour = 24;
+          eeprom_update_block((void*)&data,0,sizeof(data)); 
           lcd.clear();
           showUserTime();
         }
@@ -240,14 +262,16 @@ void drawMenu(){
       if(enc.isTurn())
       {
         if(enc.isRight() || enc.isRightH() || enc.isFastR()){ 
-          maxHour++;
-          if(maxHour > 24)maxHour = 0;  
+          data.maxHour++;
+          if(data.maxHour > 24)data.maxHour = 0;  
+          eeprom_update_block((void*)&data,0,sizeof(data));
           lcd.clear();
           showUserTime();
         }
         else if(enc.isLeft() || enc.isLeftH() || enc.isFastL() ){
-          maxHour--;
-          if(maxHour < 0)maxHour = 24;
+          data.maxHour--;
+          if(data.maxHour < 0)data.maxHour = 24;
+          eeprom_update_block((void*)&data,0,sizeof(data));
           lcd.clear();
           showUserTime();
         }
@@ -281,6 +305,7 @@ void setup()
   pinMode(battery_pump, OUTPUT);
   pinMode(electric_boiler, OUTPUT);
   pinMode(electric_valve, OUTPUT);
+  eeprom_read_block((void*)&data,0,sizeof(data));
   mainLogic();
 }
 
