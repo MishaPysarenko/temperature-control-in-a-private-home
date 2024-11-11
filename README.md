@@ -1,4 +1,4 @@
-This repository features My Arduino Project, a hands-on exploration of automation and sensor integration using the Arduino platform. Designed to showcase foundational skills in embedded systems, this project demonstrates how to leverage Arduino to interact with real-world environments through sensors, actuators, and custom code.
+This repository features **temperature-control-in-a-private-home**, a hands-on exploration of automation and sensor integration using the Arduino platform. Designed to showcase foundational skills in embedded systems, this project demonstrates how to leverage Arduino to interact with real-world environments through sensors, actuators, and custom code.
 
 # Key Features
 - **Sensor-Based Data Collection:** Captures data from various sensors, allowing the Arduino to monitor environmental changes and make adjustments based on real-time inputs.
