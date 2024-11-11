@@ -1,6 +1,5 @@
 This repository features **temperature-control-in-a-private-home**, a hands-on exploration of automation and sensor integration using the Arduino platform. Designed to showcase foundational skills in embedded systems, this project demonstrates how to leverage Arduino to interact with real-world environments through sensors, actuators, and custom code.
 
-![controlls](https://github.com/user-attachments/assets/3d806de9-75ee-4635-999f-636928de272f)
 # Key Features
 - **Sensor-Based Data Collection:** Captures data from various sensors, allowing the Arduino to monitor environmental changes and make adjustments based on real-time inputs.
 - **Automated Response System:** Implements automated actions triggered by sensor readings, providing a dynamic approach to interact with physical surroundings.
@@ -22,3 +21,5 @@ Potential improvements include:
 - Expanding sensor compatibility to broaden application possibilities.
 - Adding wireless communication for remote monitoring and control.
 - Refining the codebase for better performance and lower power consumption.
+
+![controlls](https://github.com/user-attachments/assets/3d806de9-75ee-4635-999f-636928de272f)
